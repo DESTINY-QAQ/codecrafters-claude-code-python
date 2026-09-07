@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import subprocess
 
 from openai import OpenAI
 
@@ -58,6 +59,23 @@ def main():
                 },
             },
         },
+        {
+            "type": "function",
+            "function": {
+                "name": "Bash",
+                "description": "Execute a shell command",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "command": {
+                            "type": "string",
+                            "description": "The command to execute",
+                        }
+                    },
+                    "required": ["command"],
+                },
+            },
+        },
     ]
 
     while True:
@@ -85,6 +103,21 @@ def main():
                 with open(arguments["file_path"], "w", encoding="utf-8", newline="") as file:
                     file.write(arguments["content"])
                 result = "File written successfully"
+            elif tool_call.function.name == "Bash":
+                try:
+                    completed = subprocess.run(
+                        arguments["command"],
+                        shell=True,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        text=True,
+                        errors="replace",
+                    )
+                    result = completed.stdout
+                    if completed.returncode != 0:
+                        result = f"Command exited with code {completed.returncode}\n{result}"
+                except OSError as error:
+                    result = f"Failed to execute command: {error}"
             else:
                 raise RuntimeError(f"Unknown tool: {tool_call.function.name}")
 
