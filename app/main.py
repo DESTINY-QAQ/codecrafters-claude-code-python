@@ -36,7 +36,28 @@ def main():
                     "required": ["file_path"],
                 },
             },
-        }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "Write",
+                "description": "Write content to a file",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "file_path": {
+                            "type": "string",
+                            "description": "The path of the file to write to",
+                        },
+                        "content": {
+                            "type": "string",
+                            "description": "The content to write to the file",
+                        },
+                    },
+                    "required": ["file_path", "content"],
+                },
+            },
+        },
     ]
 
     while True:
@@ -56,12 +77,16 @@ def main():
             return
 
         for tool_call in message.tool_calls:
-            if tool_call.function.name != "Read":
-                raise RuntimeError(f"Unknown tool: {tool_call.function.name}")
-
             arguments = json.loads(tool_call.function.arguments)
-            with open(arguments["file_path"], "r", encoding="utf-8") as file:
-                result = file.read()
+            if tool_call.function.name == "Read":
+                with open(arguments["file_path"], "r", encoding="utf-8") as file:
+                    result = file.read()
+            elif tool_call.function.name == "Write":
+                with open(arguments["file_path"], "w", encoding="utf-8", newline="") as file:
+                    file.write(arguments["content"])
+                result = "File written successfully"
+            else:
+                raise RuntimeError(f"Unknown tool: {tool_call.function.name}")
 
             messages.append(
                 {
