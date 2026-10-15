@@ -47,10 +47,42 @@ def build_skill_system_prompt(skills_dir=Path(".claude/skills")):
     return "You have access to the following skills:\n\n" + "\n".join(skills)
 
 
+def resolve_skill_prompt(prompt, skills_dir=Path(".claude/skills")):
+    """Replace a leading /skill-name command with that skill's body."""
+    if not prompt.startswith("/"):
+        return prompt
+
+    skill_name = prompt.split(maxsplit=1)[0][1:]
+    if (
+        not skill_name
+        or skill_name in {".", ".."}
+        or any(character in skill_name for character in "/\\:")
+    ):
+        raise ValueError(f"Invalid skill name: {skill_name!r}")
+
+    skill_file = skills_dir / skill_name / "SKILL.md"
+    if not skill_file.is_file():
+        raise ValueError(f"Unknown skill {skill_name!r}: expected {skill_file}")
+
+    with skill_file.open(encoding="utf-8-sig") as file:
+        if file.readline().strip() != "---":
+            raise ValueError(f"Skill {skill_name!r} is missing YAML frontmatter")
+        for line in file:
+            if line.strip() == "---":
+                return file.read().strip()
+
+    raise ValueError(f"Skill {skill_name!r} has no closing frontmatter marker")
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("-p", required=True)
     args = p.parse_args()
+
+    try:
+        user_prompt = resolve_skill_prompt(args.p)
+    except (ValueError, OSError, UnicodeError) as error:
+        p.error(str(error))
 
     if not API_KEY:
         raise RuntimeError("OPENROUTER_API_KEY is not set")
@@ -61,7 +93,7 @@ def main():
     skill_system_prompt = build_skill_system_prompt()
     if skill_system_prompt:
         messages.append({"role": "system", "content": skill_system_prompt})
-    messages.append({"role": "user", "content": args.p})
+    messages.append({"role": "user", "content": user_prompt})
     tools = [
         {
             "type": "function",
