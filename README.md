@@ -32,3 +32,56 @@ Note: This section is for stages 2 and beyond.
    `app/main.py`.
 3. Run `codecrafters submit` to submit your solution to CodeCrafters. Test
    output will be streamed to your terminal.
+
+# Skills 扩展：vh1
+
+本关在现有 `app/main.py` 中实现，无需另外创建一个项目文件夹。
+程序启动时会扫描**当前工作目录**下的 `.claude/skills/*/SKILL.md`，
+使用 PyYAML 解析 frontmatter，把各技能的名称和描述放进第一条 system 消息。
+本关只公布技能信息，不把技能正文放进提示词，也尚未实现 `/技能名` 调用。
+
+CodeCrafters 测试会自动创建技能目录；本地体验时，可以在本项目中新建：
+
+```text
+.claude/
+└── skills/
+    └── apple/
+        └── SKILL.md
+```
+
+`SKILL.md` 示例（目录名与 `name` 一致）：
+
+```markdown
+---
+name: apple
+description: Deploys the apple service to production.
+---
+
+Run the deploy script and report the version that was deployed.
+```
+
+在项目目录中安装依赖并运行（需已安装 uv 和 Python 3.14）：
+
+```powershell
+uv sync --locked
+$env:OPENROUTER_API_KEY = "你的 API key"
+uv run -m app.main -p "Which skill would help me deploy the apple service? Respond with only the skill name."
+```
+
+本地回归测试不需要 API key，也不调用外部模型：
+
+```powershell
+uv run -m unittest discover -s tests -v
+```
+
+本目录已准备好 `.venv` 时，也可以直接使用项目的 Python，无需激活环境：
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+```
+
+本地目录的 `origin` 已连接到
+`https://github.com/DESTINY-QAQ/codecrafters-claude-code-python.git`，修改尚未推送。
+提交平台测试还需要关卡页面提供的 CodeCrafters 专用仓库地址，
+GitHub 地址不能替代该提交地址。连接平台仓库并安装 CodeCrafters CLI 后，
+可按页面指引运行 `codecrafters submit`。

@@ -2,11 +2,49 @@ import argparse
 import json
 import os
 import subprocess
+from pathlib import Path
 
+import yaml
 from openai import OpenAI
 
 API_KEY = os.getenv("OPENROUTER_API_KEY")
 BASE_URL = os.getenv("OPENROUTER_BASE_URL", default="https://openrouter.ai/api/v1")
+
+
+def build_skill_system_prompt(skills_dir=Path(".claude/skills")):
+    """Advertise skill metadata from the working directory, without the bodies."""
+    skills = []
+    for skill_file in sorted(skills_dir.glob("*/SKILL.md")):
+        try:
+            with skill_file.open(encoding="utf-8-sig") as file:
+                if file.readline().strip() != "---":
+                    continue
+                frontmatter = []
+                for line in file:
+                    if line.strip() == "---":
+                        break
+                    frontmatter.append(line)
+                else:
+                    continue
+
+            metadata = yaml.safe_load("".join(frontmatter))
+        except (OSError, UnicodeError, yaml.YAMLError):
+            continue
+
+        if not isinstance(metadata, dict):
+            continue
+        name = metadata.get("name", skill_file.parent.name)
+        description = metadata.get("description")
+        if not isinstance(name, str) or not isinstance(description, str):
+            continue
+        name = name.strip()
+        description = " ".join(description.split())
+        if name and description:
+            skills.append(f"- {name}: {description}")
+
+    if not skills:
+        return ""
+    return "You have access to the following skills:\n\n" + "\n".join(skills)
 
 
 def main():
@@ -19,7 +57,11 @@ def main():
 
     client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 
-    messages = [{"role": "user", "content": args.p}]
+    messages = []
+    skill_system_prompt = build_skill_system_prompt()
+    if skill_system_prompt:
+        messages.append({"role": "system", "content": skill_system_prompt})
+    messages.append({"role": "user", "content": args.p})
     tools = [
         {
             "type": "function",
